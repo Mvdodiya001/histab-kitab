@@ -1,9 +1,12 @@
 import logging
 import uuid
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from agents.split_agent import process_voice_command
 from agents.tools import recalculate_splits
@@ -166,3 +169,18 @@ async def text_command(session_id: str, body: TextCommandRequest) -> VoiceComman
         spoken_reply=decision.spoken_reply,
         audio_base64=audio_b64,
     )
+
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if FRONTEND_DIST.is_dir():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        candidate = FRONTEND_DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")
+
